@@ -1,0 +1,65 @@
+#include <WiFi.h>
+#include "DHT.h"
+#include <HTTPClient.h>
+
+// WiFi credentials
+const char* ssid = "YOUR_WIFI_NAME";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// ThingSpeak settings
+String apiKey = "YOUR_THINGSPEAK_WRITE_API_KEY";
+const char* server = "http://api.thingspeak.com/update";
+
+// DHT settings
+#define DHTPIN 4
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Soil moisture pin
+#define SOIL_PIN 34
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi");
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+  int soilRaw = analogRead(SOIL_PIN);
+
+  // Convert soil reading to percentage
+  int soilMoisture = map(soilRaw, 4095, 0, 0, 100);
+  soilMoisture = constrain(soilMoisture, 0, 100);
+
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("Sensor read failed");
+    return;
+  }
+
+  Serial.print("Temp: "); Serial.print(temperature);
+  Serial.print(" | Humidity: "); Serial.print(humidity);
+  Serial.print(" | Soil Moisture: "); Serial.println(soilMoisture);
+
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = server + String("?api_key=") + apiKey +
+                 "&field1=" + String(temperature) +
+                 "&field2=" + String(humidity) +
+                 "&field3=" + String(soilMoisture);
+
+    http.begin(url);
+    http.GET();
+    http.end();
+  }
+
+  delay(15000); // ThingSpeak minimum update time
+}
