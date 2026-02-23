@@ -1,0 +1,62 @@
+#include "DHT.h"
+
+#define DHTPIN 4        // DHT11 data pin
+#define DHTTYPE DHT11
+
+#define IN1 26          // Motor driver pin
+#define IN2 27
+#define ENA 25          // PWM pin
+
+DHT dht(DHTPIN, DHTTYPE);
+
+float temp;
+int threshold = 30;     // Temperature threshold (°C)
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENA, OUTPUT);
+
+  // Motor OFF initially
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  analogWrite(ENA, 0);
+}
+
+void loop() {
+  temp = dht.readTemperature(); // Read temperature in °C
+
+  if (isnan(temp)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  Serial.print("Temperature: ");
+  Serial.print(temp);
+  Serial.println(" °C");
+
+  if (temp >= threshold) {
+    // Turn ON motor
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+
+    int speed = map(temp, threshold, 45, 120, 255);
+    speed = constrain(speed, 120, 255);
+    analogWrite(ENA, speed);
+
+    Serial.println("Fan ON");
+  } 
+  else {
+    // Turn OFF motor
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    analogWrite(ENA, 0);
+
+    Serial.println("Fan OFF");
+  }
+
+  delay(2000); // Read every 2 seconds
+}
